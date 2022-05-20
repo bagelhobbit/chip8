@@ -59,17 +59,17 @@ pub fn parse(high_byte: u8, low_byte: u8) -> Instruction {
                     vy: get_upper_bits(low_byte) as usize,
                 },
                 //8xy1
-                _lbyte if get_lower_bits(low_byte) == 1 => Instruction::OR {
+                _lbyte if get_lower_bits(low_byte) == 1 => Instruction::Or {
                     vx: get_lower_bits(high_byte) as usize,
                     vy: get_upper_bits(low_byte) as usize,
                 },
                 //8xy2
-                _lbyte if get_lower_bits(low_byte) == 2 => Instruction::AND {
+                _lbyte if get_lower_bits(low_byte) == 2 => Instruction::And {
                     vx: get_lower_bits(high_byte) as usize,
                     vy: get_upper_bits(low_byte) as usize,
                 },
                 //8xy3
-                _lbyte if get_lower_bits(low_byte) == 3 => Instruction::XOR {
+                _lbyte if get_lower_bits(low_byte) == 3 => Instruction::Xor {
                     vx: get_lower_bits(high_byte) as usize,
                     vy: get_upper_bits(low_byte) as usize,
                 },
@@ -241,19 +241,19 @@ pub fn execute(memory: &mut Memory, instruction: Instruction) {
             memory.program_counter += 2;
         }
         Instruction::LoadReg { vx, vy } => {
-            memory.registers[vx] = memory.registers[vx] + memory.registers[vy];
+            memory.registers[vx] += memory.registers[vy];
             memory.program_counter += 2;
         }
-        Instruction::OR { vx, vy } => {
-            memory.registers[vx] = memory.registers[vx] | memory.registers[vy];
+        Instruction::Or { vx, vy } => {
+            memory.registers[vx] |= memory.registers[vy];
             memory.program_counter += 2;
         }
-        Instruction::AND { vx, vy } => {
-            memory.registers[vx] = memory.registers[vx] & memory.registers[vy];
+        Instruction::And { vx, vy } => {
+            memory.registers[vx] &= memory.registers[vy];
             memory.program_counter += 2;
         }
-        Instruction::XOR { vx, vy } => {
-            memory.registers[vx] = memory.registers[vx] ^ memory.registers[vy];
+        Instruction::Xor { vx, vy } => {
+            memory.registers[vx] ^= memory.registers[vy];
             memory.program_counter += 2;
         }
         Instruction::AddReg { vx, vy } => {
@@ -267,7 +267,7 @@ pub fn execute(memory: &mut Memory, instruction: Instruction) {
         Instruction::Subtract { vx, vy } => {
             if memory.registers[vx] > memory.registers[vy] {
                 memory.registers[0xF] = 1;
-                memory.registers[vx] = memory.registers[vx] - memory.registers[vy];
+                memory.registers[vx] -= memory.registers[vy];
             } else {
                 memory.registers[0xF] = 0;
                 let result = memory.registers[vx] as i16 - memory.registers[vy] as i16;
@@ -281,7 +281,7 @@ pub fn execute(memory: &mut Memory, instruction: Instruction) {
             } else {
                 memory.registers[0xF] = 0
             }
-            memory.registers[vx] = memory.registers[vx] / 2;
+            memory.registers[vx] /= 2;
             memory.program_counter += 2;
         }
         Instruction::SubtractReverse { vx, vy } => {
@@ -299,7 +299,7 @@ pub fn execute(memory: &mut Memory, instruction: Instruction) {
             } else {
                 memory.registers[0xF] = 0
             }
-            memory.registers[vx] = memory.registers[vx] << 1;
+            memory.registers[vx] <<= 1;
             memory.program_counter += 2;
         }
         Instruction::SkipIfNotEqualReg { vx, vy } => {
@@ -381,10 +381,31 @@ pub fn execute(memory: &mut Memory, instruction: Instruction) {
             memory.program_counter += 2;
         }
         Instruction::AddAddressOffset { vx } => {
-            memory.i = memory.i + memory.registers[vx] as u16;
+            memory.i += memory.registers[vx] as u16;
             memory.program_counter += 2;
         }
-        Instruction::LoadSprite { vx: _ } => todo!(),
+        Instruction::LoadSprite { vx } => {
+            match memory.registers[vx] {
+                0 => memory.i = 0,
+                1 => memory.i = 5,
+                2 => memory.i = 10,
+                3 => memory.i = 15,
+                4 => memory.i = 20,
+                5 => memory.i = 25,
+                6 => memory.i = 30,
+                7 => memory.i = 35,
+                8 => memory.i = 40,
+                9 => memory.i = 45,
+                0xA => memory.i = 50,
+                0xB => memory.i = 55,
+                0xC => memory.i = 60,
+                0xD => memory.i = 65,
+                0xE => memory.i = 70,
+                0xF => memory.i = 75,
+                _ => memory.i = 0
+            }
+            memory.program_counter += 2;
+        },
         Instruction::SetBCD { vx } => {
             let hundreds = memory.registers[vx] / 100;
             let tens = (memory.registers[vx] - (hundreds * 100)) / 10;

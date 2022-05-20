@@ -61,17 +61,17 @@ pub enum Instruction {
         vy: usize,
     },
     /// 0x8xy1 - OR Vx, Vy
-    OR {
+    Or {
         vx: usize,
         vy: usize,
     },
     /// 0x8xy2 - AND Vx, Vy
-    AND {
+    And {
         vx: usize,
         vy: usize,
     },
     /// 0x8xy3 - XOR Vx, Vy
-    XOR {
+    Xor {
         vx: usize,
         vy: usize,
     },

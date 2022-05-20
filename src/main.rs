@@ -3,6 +3,7 @@ use memory::Memory;
 use std::env;
 use std::fs;
 
+mod display_constants;
 mod instructions;
 mod interpreter;
 mod memory;
@@ -31,11 +32,24 @@ fn main() {
         ram: [0; 0xFFF],
     };
 
-    //TODO Load sprites into interpreter area of memory
+    memory.ram[0..5].clone_from_slice(&display_constants::ZERO);
+    memory.ram[5..10].clone_from_slice(&display_constants::ONE);
+    memory.ram[10..15].clone_from_slice(&display_constants::TWO);
+    memory.ram[15..20].clone_from_slice(&display_constants::THREE);
+    memory.ram[20..25].clone_from_slice(&display_constants::FOUR);
+    memory.ram[25..30].clone_from_slice(&display_constants::FIVE);
+    memory.ram[30..35].clone_from_slice(&display_constants::SIX);
+    memory.ram[35..40].clone_from_slice(&display_constants::SEVEN);
+    memory.ram[40..45].clone_from_slice(&display_constants::EIGHT);
+    memory.ram[45..50].clone_from_slice(&display_constants::NINE);
+    memory.ram[50..55].clone_from_slice(&display_constants::A);
+    memory.ram[55..60].clone_from_slice(&display_constants::B);
+    memory.ram[60..65].clone_from_slice(&display_constants::C);
+    memory.ram[65..70].clone_from_slice(&display_constants::D);
+    memory.ram[70..75].clone_from_slice(&display_constants::E);
+    memory.ram[75..80].clone_from_slice(&display_constants::F);
 
-    for index in 0..contents.len() {
-        memory.ram[memory::INTERPRETER_SIZE + index] = contents[index];
-    }
+    memory.ram[memory::INTERPRETER_SIZE..(contents.len() + memory::INTERPRETER_SIZE)].clone_from_slice(&contents[..]);
 
     let mut last_address = memory.program_counter;
     loop {
