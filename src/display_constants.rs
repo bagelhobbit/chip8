@@ -1,3 +1,7 @@
+pub const HEIGHT: u16 = 32;
+
+pub const WIDTH: u16 = 64;
+
 // ****
 // *  *
 // *  *

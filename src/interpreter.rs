@@ -1,9 +1,10 @@
+use crate::display_constants;
 use crate::instructions::Address;
 use crate::instructions::Instruction;
 use crate::memory::Memory;
+use crossterm::{cursor, style, QueueableCommand};
 use rand::Rng;
-use std::thread;
-use std::time;
+use std::io::{stdout, Write};
 
 pub fn parse(high_byte: u8, low_byte: u8) -> Instruction {
     match high_byte {
@@ -334,10 +335,14 @@ pub fn execute(memory: &mut Memory, instruction: Instruction) {
                 let bits = get_as_bits(memory.ram[memory.i as usize + row]);
 
                 for col in 0..8 {
-                    let old_value = memory.display[(y + row) % 32][(x + col) % 64];
-                    memory.display[(y + row) % 32][(x + col) % 64] ^= bits[col];
+                    let row_index = (y + row) % display_constants::HEIGHT as usize;
+                    let col_index = (x + col) % display_constants::WIDTH as usize;
 
-                    if old_value == 1 && memory.display[(y + row) % 32][(x + col) % 64] == 0 {
+                    let old_value = memory.display[row_index][col_index];
+
+                    memory.display[row_index][col_index] ^= bits[col];
+
+                    if old_value == 1 && memory.display[row_index][col_index] == 0 {
                         collided = true;
                     }
                 }
@@ -349,19 +354,24 @@ pub fn execute(memory: &mut Memory, instruction: Instruction) {
                 memory.registers[0xF] = 0;
             }
 
-            for i in 0..32 {
-                for j in 0..64 {
-                    if memory.display[i][j] == 1 {
-                        // print out unicode 'FULL BLOCK' U+2588
-                        print!("{}", String::from_utf8(vec![0xE2, 0x96, 0x88]).unwrap());
-                    } else {
-                        print!(" ");
+            let mut stdout = stdout();
+
+            for row in y..(y + length as usize) {
+                for col in x..(x + 8) {
+                    let row_index = row % display_constants::HEIGHT as usize;
+                    let col_index = col % display_constants::WIDTH as usize;
+
+                    if memory.display[row_index][col_index] == 1 {
+                        stdout
+                            .queue(cursor::MoveTo(col as u16, row as u16 + 1))
+                            .unwrap()
+                            .queue(style::Print("█"))
+                            .unwrap();
                     }
                 }
-                println!();
             }
 
-            thread::sleep(time::Duration::from_secs(1));
+            stdout.flush().unwrap();
 
             memory.program_counter += 2;
         }
@@ -402,10 +412,10 @@ pub fn execute(memory: &mut Memory, instruction: Instruction) {
                 0xD => memory.i = 65,
                 0xE => memory.i = 70,
                 0xF => memory.i = 75,
-                _ => memory.i = 0
+                _ => memory.i = 0,
             }
             memory.program_counter += 2;
-        },
+        }
         Instruction::SetBCD { vx } => {
             let hundreds = memory.registers[vx] / 100;
             let tens = (memory.registers[vx] - (hundreds * 100)) / 10;

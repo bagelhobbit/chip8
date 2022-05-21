@@ -1,19 +1,26 @@
+use crossterm::event::{poll, read, Event};
+use crossterm::{
+    cursor, execute, style,
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen},
+    Result,
+};
 use instructions::Instruction;
 use memory::Memory;
 use std::env;
 use std::fs;
+use std::io::stdout;
+use std::time::Duration;
 
 mod display_constants;
 mod instructions;
 mod interpreter;
 mod memory;
 
-fn main() {
+fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect();
 
     if args.len() == 1 {
-        println!("usage: chip8 <file>");
-        return;
+        println!("usage: chip8 <file>")
     }
 
     let filename = &args[1];
@@ -49,9 +56,19 @@ fn main() {
     memory.ram[70..75].clone_from_slice(&display_constants::E);
     memory.ram[75..80].clone_from_slice(&display_constants::F);
 
-    memory.ram[memory::INTERPRETER_SIZE..(contents.len() + memory::INTERPRETER_SIZE)].clone_from_slice(&contents[..]);
+    memory.ram[memory::INTERPRETER_SIZE..(contents.len() + memory::INTERPRETER_SIZE)]
+        .clone_from_slice(&contents[..]);
 
-    let mut last_address = memory.program_counter;
+    let mut stdout = stdout();
+
+    execute!(stdout, EnterAlternateScreen, cursor::Hide)?;
+
+    execute!(
+        stdout,
+        cursor::MoveTo(0, 0),
+        style::Print("Press any key to exit")
+    )?;
+
     loop {
         let instruction = interpreter::parse(
             memory.ram[memory.program_counter as usize],
@@ -64,10 +81,14 @@ fn main() {
 
         interpreter::execute(&mut memory, instruction);
 
-        if last_address == memory.program_counter {
-            break;
+        if poll(Duration::from_millis(16))? {
+            if let Event::Key(event) = read()? {
+                execute!(stdout, LeaveAlternateScreen, cursor::Show)?;
+                println!("{:?}", event);
+                break;
+            }
         }
-
-        last_address = memory.program_counter;
     }
+
+    Ok(())
 }
