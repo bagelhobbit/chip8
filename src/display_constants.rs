@@ -1,6 +1,6 @@
-pub const HEIGHT: u16 = 32;
+pub const HEIGHT: u32 = 32;
 
-pub const WIDTH: u16 = 64;
+pub const WIDTH: u32 = 64;
 
 // ****
 // *  *

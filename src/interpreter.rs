@@ -2,9 +2,27 @@ use crate::display_constants;
 use crate::instructions::Address;
 use crate::instructions::Instruction;
 use crate::memory::Memory;
-use crossterm::{cursor, style, QueueableCommand};
 use rand::Rng;
-use std::io::{stdout, Write};
+use sdl2::keyboard::Keycode;
+
+const KEY_MAP: [Keycode; 16] = [
+    Keycode::X,
+    Keycode::Num1,
+    Keycode::Num2,
+    Keycode::Num3,
+    Keycode::Q,
+    Keycode::W,
+    Keycode::E,
+    Keycode::A,
+    Keycode::S,
+    Keycode::D,
+    Keycode::Z,
+    Keycode::C,
+    Keycode::Num4,
+    Keycode::R,
+    Keycode::F,
+    Keycode::V,
+];
 
 pub fn parse(high_byte: u8, low_byte: u8) -> Instruction {
     match high_byte {
@@ -189,7 +207,11 @@ pub fn parse(high_byte: u8, low_byte: u8) -> Instruction {
     }
 }
 
-pub fn execute(memory: &mut Memory, instruction: Instruction) {
+pub fn execute(
+    memory: &mut Memory,
+    instruction: Instruction,
+    pressed_keys: &mut Vec<Keycode>,
+) -> Option<(usize, usize, u8)> {
     // Because we read in the instruction and arguments together,
     // we need to increment the program counter by 2 normally so we don't read in the middle of anything.
     match instruction {
@@ -354,29 +376,46 @@ pub fn execute(memory: &mut Memory, instruction: Instruction) {
                 memory.registers[0xF] = 0;
             }
 
-            let mut stdout = stdout();
+            memory.program_counter += 2;
 
-            for row in y..(y + length as usize) {
-                for col in x..(x + 8) {
-                    let row_index = row % display_constants::HEIGHT as usize;
-                    let col_index = col % display_constants::WIDTH as usize;
+            return Some((x, y, length));
+        }
+        Instruction::SkipIfKeyPressed { vx } => {
+            let key_code = memory.registers[vx] as usize;
 
-                    if memory.display[row_index][col_index] == 1 {
-                        stdout
-                            .queue(cursor::MoveTo(col as u16, row as u16 + 1))
-                            .unwrap()
-                            .queue(style::Print("█"))
-                            .unwrap();
+            if pressed_keys.contains(&KEY_MAP[key_code]) {
+                let mut i = 0;
+                while i < pressed_keys.len() {
+                    if KEY_MAP[key_code] == pressed_keys[i] {
+                        _ = pressed_keys.remove(i);
+                    } else {
+                        i += 1;
                     }
                 }
+
+                memory.program_counter += 4;
+            } else {
+                memory.program_counter += 2;
             }
-
-            stdout.flush().unwrap();
-
-            memory.program_counter += 2;
         }
-        Instruction::SkipIfKeyPressed { vx: _ } => todo!(),
-        Instruction::SkipIfNotKeyPressed { vx: _ } => todo!(),
+        Instruction::SkipIfNotKeyPressed { vx } => {
+            let key_code = memory.registers[vx] as usize;
+
+            if !pressed_keys.contains(&KEY_MAP[key_code]) {
+                memory.program_counter += 4;
+            } else {
+                let mut i = 0;
+                while i < pressed_keys.len() {
+                    if KEY_MAP[key_code] == pressed_keys[i] {
+                        _ = pressed_keys.remove(i);
+                    } else {
+                        i += 1;
+                    }
+                }
+
+                memory.program_counter += 2;
+            }
+        }
         Instruction::LoadDelay { vx } => {
             memory.registers[vx] = memory.delay;
             memory.program_counter += 2;
@@ -440,6 +479,8 @@ pub fn execute(memory: &mut Memory, instruction: Instruction) {
             memory.program_counter += 2;
         }
     }
+
+    None
 }
 
 /// Returns the top 4 bits of a u8
