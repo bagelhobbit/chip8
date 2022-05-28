@@ -25,184 +25,126 @@ const KEY_MAP: [Keycode; 16] = [
 ];
 
 pub fn parse(high_byte: u8, low_byte: u8) -> Instruction {
-    match high_byte {
-        0x00 => match low_byte {
-            0xE0 => Instruction::Clear,
-            0xEE => Instruction::Return,
-            _ => Instruction::Invalid,
-        },
+    match (
+        get_upper_bits(high_byte),
+        get_lower_bits(high_byte),
+        get_upper_bits(low_byte),
+        get_lower_bits(low_byte),
+    ) {
+        //00E0
+        (0x0, 0x0, 0xE, 0x0) => Instruction::Clear,
+        //00EE
+        (0x0, 0x0, 0xE, 0xE) => Instruction::Return,
         //1nnn
-        _byte if get_upper_bits(high_byte) == 1 => Instruction::JumpTo(Address {
-            high: get_lower_bits(high_byte),
-            middle: get_upper_bits(low_byte),
-            low: get_lower_bits(low_byte),
-        }),
+        (0x1, high, middle, low) => Instruction::JumpTo(Address { high, middle, low }),
         //2nnn
-        _byte if get_upper_bits(high_byte) == 2 => Instruction::Call(Address {
-            high: get_lower_bits(high_byte),
-            middle: get_upper_bits(low_byte),
-            low: get_lower_bits(low_byte),
-        }),
+        (0x2, high, middle, low) => Instruction::Call(Address { high, middle, low }),
         //3xkk
-        _byte if get_upper_bits(high_byte) == 3 => Instruction::SkipIfEqualByte {
-            vx: get_lower_bits(high_byte) as usize,
+        (0x3, reg, _, _) => Instruction::SkipIfEqualByte {
+            vx: reg as usize,
             byte: low_byte,
         },
         //4xkk
-        _byte if get_upper_bits(high_byte) == 4 => Instruction::SkipIfNotEqualByte {
-            vx: get_lower_bits(high_byte) as usize,
+        (0x4, reg, _, _) => Instruction::SkipIfNotEqualByte {
+            vx: reg as usize,
             byte: low_byte,
         },
         //5xy0
-        // TODO: also check lowest 4 bits are 0?
-        _byte if get_upper_bits(high_byte) == 5 => Instruction::SkipIfEqualReg {
-            vx: get_lower_bits(high_byte) as usize,
-            vy: get_upper_bits(low_byte) as usize,
+        (0x5, reg_x, reg_y, 0) => Instruction::SkipIfEqualReg {
+            vx: reg_x as usize,
+            vy: reg_y as usize,
         },
         //6xkk
-        _byte if get_upper_bits(high_byte) == 6 => Instruction::LoadByte {
-            vx: get_lower_bits(high_byte) as usize,
+        (0x6, reg, _, _) => Instruction::LoadByte {
+            vx: reg as usize,
             byte: low_byte,
         },
         //7xkk
-        _byte if get_upper_bits(high_byte) == 7 => Instruction::AddByte {
-            vx: get_lower_bits(high_byte) as usize,
+        (0x7, reg, _, _) => Instruction::AddByte {
+            vx: reg as usize,
             byte: low_byte,
         },
-        //8xy_
-        _byte if get_upper_bits(high_byte) == 8 => {
-            match low_byte {
-                //8xy0
-                _lbyte if get_lower_bits(low_byte) == 0 => Instruction::LoadReg {
-                    vx: get_lower_bits(high_byte) as usize,
-                    vy: get_upper_bits(low_byte) as usize,
-                },
-                //8xy1
-                _lbyte if get_lower_bits(low_byte) == 1 => Instruction::Or {
-                    vx: get_lower_bits(high_byte) as usize,
-                    vy: get_upper_bits(low_byte) as usize,
-                },
-                //8xy2
-                _lbyte if get_lower_bits(low_byte) == 2 => Instruction::And {
-                    vx: get_lower_bits(high_byte) as usize,
-                    vy: get_upper_bits(low_byte) as usize,
-                },
-                //8xy3
-                _lbyte if get_lower_bits(low_byte) == 3 => Instruction::Xor {
-                    vx: get_lower_bits(high_byte) as usize,
-                    vy: get_upper_bits(low_byte) as usize,
-                },
-                //8xy4
-                _lbyte if get_lower_bits(low_byte) == 4 => Instruction::AddReg {
-                    vx: get_lower_bits(high_byte) as usize,
-                    vy: get_upper_bits(low_byte) as usize,
-                },
-                //8xy5
-                _lbyte if get_lower_bits(low_byte) == 5 => Instruction::Subtract {
-                    vx: get_lower_bits(high_byte) as usize,
-                    vy: get_upper_bits(low_byte) as usize,
-                },
-                //8xy6
-                _lbyte if get_lower_bits(low_byte) == 6 => Instruction::ShiftRight {
-                    vx: get_lower_bits(high_byte) as usize,
-                },
-                //8xy7
-                _lbyte if get_lower_bits(low_byte) == 7 => Instruction::SubtractReverse {
-                    vx: get_lower_bits(high_byte) as usize,
-                    vy: get_upper_bits(low_byte) as usize,
-                },
-                //8xyE
-                _lbyte if get_lower_bits(low_byte) == 0xE => Instruction::ShiftLeft {
-                    vx: get_lower_bits(high_byte) as usize,
-                },
-                _ => Instruction::Invalid,
-            }
-        }
+        //8xy0
+        (0x8, reg_x, reg_y, 0x0) => Instruction::LoadReg {
+            vx: reg_x as usize,
+            vy: reg_y as usize,
+        },
+        //8xy1
+        (0x8, reg_x, reg_y, 0x1) => Instruction::Or {
+            vx: reg_x as usize,
+            vy: reg_y as usize,
+        },
+        //8xy2
+        (0x8, reg_x, reg_y, 0x2) => Instruction::And {
+            vx: reg_x as usize,
+            vy: reg_y as usize,
+        },
+        //8xy3
+        (0x8, reg_x, reg_y, 0x3) => Instruction::Xor {
+            vx: reg_x as usize,
+            vy: reg_y as usize,
+        },
+        //8xy4
+        (0x8, reg_x, reg_y, 0x4) => Instruction::AddReg {
+            vx: reg_x as usize,
+            vy: reg_y as usize,
+        },
+        //8xy5
+        (0x8, reg_x, reg_y, 0x5) => Instruction::Subtract {
+            vx: reg_x as usize,
+            vy: reg_y as usize,
+        },
+        //8xy6
+        (0x8, reg_x, _, 0x6) => Instruction::ShiftRight { vx: reg_x as usize },
+        //8xy7
+        (0x8, reg_x, reg_y, 0x7) => Instruction::SubtractReverse {
+            vx: reg_x as usize,
+            vy: reg_y as usize,
+        },
+        //8xyE
+        (0x8, reg_x, _, 0xE) => Instruction::ShiftLeft { vx: reg_x as usize },
         //9xy0
-        // TODO: also check lowest 4 bits are 0?
-        _byte if get_upper_bits(high_byte) == 9 => Instruction::SkipIfNotEqualReg {
-            vx: get_lower_bits(high_byte) as usize,
-            vy: get_upper_bits(low_byte) as usize,
+        (0x9, reg_x, reg_y, 0x0) => Instruction::SkipIfNotEqualReg {
+            vx: reg_x as usize,
+            vy: reg_y as usize,
         },
         //Annn
-        _byte if get_upper_bits(high_byte) == 0xA => Instruction::LoadAddress(Address {
-            high: get_lower_bits(high_byte),
-            middle: get_upper_bits(low_byte),
-            low: get_lower_bits(low_byte),
-        }),
+        (0xA, high, middle, low) => Instruction::LoadAddress(Address { high, middle, low }),
         //Bnnn
-        _byte if get_upper_bits(high_byte) == 0xB => Instruction::JumpOffset(Address {
-            high: get_lower_bits(high_byte),
-            middle: get_upper_bits(low_byte),
-            low: get_lower_bits(low_byte),
-        }),
+        (0xB, high, middle, low) => Instruction::JumpOffset(Address { high, middle, low }),
         //Cxkk
-        _byte if get_upper_bits(high_byte) == 0xC => Instruction::Random {
-            vx: get_lower_bits(high_byte) as usize,
+        (0xC, reg_x, _, _) => Instruction::Random {
+            vx: reg_x as usize,
             byte: low_byte,
         },
         //Dxyn
-        _byte if get_upper_bits(high_byte) == 0xD => Instruction::Draw {
-            vx: get_lower_bits(high_byte) as usize,
-            vy: get_upper_bits(low_byte) as usize,
-            nibble: get_lower_bits(low_byte),
+        (0xD, reg_x, reg_y, nibble) => Instruction::Draw {
+            vx: reg_x as usize,
+            vy: reg_y as usize,
+            nibble,
         },
-        //Ex__
-        _byte if get_upper_bits(high_byte) == 0xE => {
-            match low_byte {
-                //Ex9E
-                _lbyte if low_byte == 0x9E => Instruction::SkipIfKeyPressed {
-                    vx: get_lower_bits(high_byte) as usize,
-                },
-                //ExA1
-                _lbyte if low_byte == 0xA1 => Instruction::SkipIfNotKeyPressed {
-                    vx: get_lower_bits(high_byte) as usize,
-                },
-                _ => Instruction::Invalid,
-            }
-        }
-        //Fx__
-        _byte if get_upper_bits(high_byte) == 0xF => {
-            match low_byte {
-                //Fx07
-                _lbyte if low_byte == 0x07 => Instruction::LoadDelay {
-                    vx: get_lower_bits(high_byte) as usize,
-                },
-                //Fx0A
-                _lbyte if low_byte == 0x0A => Instruction::LoadKeyPressed {
-                    vx: get_lower_bits(high_byte) as usize,
-                },
-                //Fx15
-                _lbyte if low_byte == 0x15 => Instruction::SetDelay {
-                    vx: get_lower_bits(high_byte) as usize,
-                },
-                //Fx18
-                _lbyte if low_byte == 0x18 => Instruction::SetSound {
-                    vx: get_lower_bits(high_byte) as usize,
-                },
-                //Fx1E
-                _lbyte if low_byte == 0x1E => Instruction::AddAddressOffset {
-                    vx: get_lower_bits(high_byte) as usize,
-                },
-                //Fx29
-                _lbyte if low_byte == 0x29 => Instruction::LoadSprite {
-                    vx: get_lower_bits(high_byte) as usize,
-                },
-                //Fx33
-                _lbyte if low_byte == 0x33 => Instruction::SetBCD {
-                    vx: get_lower_bits(high_byte) as usize,
-                },
-                //Fx55
-                _lbyte if low_byte == 0x55 => Instruction::LoadRegisters {
-                    vx: get_lower_bits(high_byte) as usize,
-                },
-                //Fx65
-                _lbyte if low_byte == 0x65 => Instruction::ReadRegisters {
-                    vx: get_lower_bits(high_byte) as usize,
-                },
-                _ => Instruction::Invalid,
-            }
-        }
+        //Ex9E
+        (0xE, reg_x, 0x9, 0xE) => Instruction::SkipIfKeyPressed { vx: reg_x as usize },
+        //ExA1
+        (0xE, reg_x, 0xA, 0x1) => Instruction::SkipIfNotKeyPressed { vx: reg_x as usize },
+        //Fx07
+        (0xF, reg_x, 0x0, 0x7) => Instruction::LoadDelay { vx: reg_x as usize },
+        //Fx0A
+        (0xF, reg_x, 0x0, 0xA) => Instruction::LoadKeyPressed { vx: reg_x as usize },
+        //Fx15
+        (0xF, reg_x, 0x1, 0x5) => Instruction::SetDelay { vx: reg_x as usize },
+        //Fx18
+        (0xF, reg_x, 0x1, 0x8) => Instruction::SetSound { vx: reg_x as usize },
+        //Fx1E
+        (0xF, reg_x, 0x1, 0xE) => Instruction::AddAddressOffset { vx: reg_x as usize },
+        //Fx29
+        (0xF, reg_x, 0x2, 0x9) => Instruction::LoadSprite { vx: reg_x as usize },
+        //Fx33
+        (0xF, reg_x, 0x3, 0x3) => Instruction::SetBCD { vx: reg_x as usize },
+        //Fx55
+        (0xF, reg_x, 0x5, 0x5) => Instruction::LoadRegisters { vx: reg_x as usize },
+        //Fx65
+        (0xF, reg_x, 0x6, 0x5) => Instruction::ReadRegisters { vx: reg_x as usize },
         _ => Instruction::Invalid,
     }
 }
