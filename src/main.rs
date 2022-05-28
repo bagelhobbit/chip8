@@ -61,7 +61,11 @@ fn main() {
     let video_subsystem = sdl_context.video().unwrap();
 
     let window = video_subsystem
-        .window("rust-sdl2 demo", 640, 320)
+        .window(
+            "CHIP8 Emulator",
+            display_constants::WIDTH * display_constants::SCALE,
+            display_constants::HEIGHT * display_constants::SCALE,
+        )
         .position_centered()
         .build()
         .unwrap();
@@ -115,17 +119,17 @@ fn main() {
 
                         if memory.display[row_index][col_index] == 1 {
                             filled_rects.push(Rect::new(
-                                col_index as i32 * 10,
-                                row_index as i32 * 10,
-                                10,
-                                10,
+                                col_index as i32 * display_constants::SCALE as i32,
+                                row_index as i32 * display_constants::SCALE as i32,
+                                display_constants::SCALE,
+                                display_constants::SCALE,
                             ));
                         } else {
                             blank_rects.push(Rect::new(
-                                col_index as i32 * 10,
-                                row_index as i32 * 10,
-                                10,
-                                10,
+                                col_index as i32 * display_constants::SCALE as i32,
+                                row_index as i32 * display_constants::SCALE as i32,
+                                display_constants::SCALE,
+                                display_constants::SCALE,
                             ));
                         }
                     }

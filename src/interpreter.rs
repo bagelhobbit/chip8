@@ -356,13 +356,13 @@ pub fn execute(
             for row in 0..(length as usize) {
                 let bits = get_as_bits(memory.ram[memory.i as usize + row]);
 
-                for col in 0..8 {
+                for (bit, _) in bits.iter().enumerate() {
                     let row_index = (y + row) % display_constants::HEIGHT as usize;
-                    let col_index = (x + col) % display_constants::WIDTH as usize;
+                    let col_index = (x + bit) % display_constants::WIDTH as usize;
 
                     let old_value = memory.display[row_index][col_index];
 
-                    memory.display[row_index][col_index] ^= bits[col];
+                    memory.display[row_index][col_index] ^= bits[bit];
 
                     if old_value == 1 && memory.display[row_index][col_index] == 0 {
                         collided = true;

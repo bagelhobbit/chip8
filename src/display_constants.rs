@@ -2,6 +2,8 @@ pub const HEIGHT: u32 = 32;
 
 pub const WIDTH: u32 = 64;
 
+pub const SCALE: u32 = 10;
+
 // ****
 // *  *
 // *  *
