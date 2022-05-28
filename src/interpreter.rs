@@ -218,6 +218,7 @@ pub fn execute(
         Instruction::Invalid => todo!(),
         Instruction::Clear => {
             memory.display = [[0; 64]; 32];
+            memory.program_counter += 2;
         }
         Instruction::Return => {
             memory.program_counter = memory.stack[memory.stack_pointer];
@@ -420,7 +421,21 @@ pub fn execute(
             memory.registers[vx] = memory.delay;
             memory.program_counter += 2;
         }
-        Instruction::LoadKeyPressed { vx: _ } => todo!(),
+        Instruction::LoadKeyPressed { vx } => {
+            let mut i = 0;
+            while i < pressed_keys.len() {
+                if KEY_MAP.contains(&pressed_keys[i]) {
+                    memory.registers[vx] =
+                        KEY_MAP.iter().position(|&k| k == pressed_keys[i]).unwrap() as u8;
+                    memory.program_counter += 2;
+                    break;
+                } else {
+                    i += 1;
+                }
+            }
+
+            pressed_keys.clear();
+        }
         Instruction::SetDelay { vx } => {
             memory.delay = memory.registers[vx];
             memory.program_counter += 2;
