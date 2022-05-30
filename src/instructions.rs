@@ -96,7 +96,7 @@ pub enum Instruction {
     },
     /// 0x8xyE - SHL Vx {, Vy}
     ShiftLeft {
-        vx: usize
+        vx: usize,
     },
     /// 0x9xy0 - SNE Vx, Vy
     SkipIfNotEqualReg {

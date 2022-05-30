@@ -2,8 +2,10 @@ use instructions::Instruction;
 use memory::Memory;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
+use sdl2::keyboard::Scancode;
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
+use std::collections::HashSet;
 use std::env;
 use std::fs;
 use std::time::Duration;
@@ -76,7 +78,7 @@ fn main() {
     canvas.clear();
     canvas.present();
     let mut event_pump = sdl_context.event_pump().unwrap();
-    let mut pressed_keys = Vec::new();
+    let mut old_scancodes: HashSet<Scancode> = HashSet::new();
 
     'running: loop {
         for event in event_pump.poll_iter() {
@@ -86,64 +88,87 @@ fn main() {
                     keycode: Some(Keycode::Escape),
                     ..
                 } => break 'running,
-                Event::KeyDown {
-                    keycode: Some(key), ..
-                } => {
-                    pressed_keys.push(key);
-                }
                 _ => {}
             }
         }
 
-        let instruction = interpreter::parse(
-            memory.ram[memory.program_counter as usize],
-            memory.ram[memory.program_counter as usize + 1],
-        );
+        let pressed_keys = pressed_keycode_set(&event_pump);
+        let new_keys: HashSet<Keycode> =
+            newly_pressed(&old_scancodes, &pressed_scancode_set(&event_pump))
+                .iter()
+                .filter_map(|&s| Keycode::from_scancode(s))
+                .collect();
 
-        if instruction == Instruction::Invalid {
-            continue;
+        for _ in 0..20 {
+            let instruction = interpreter::parse(
+                memory.ram[memory.program_counter as usize],
+                memory.ram[memory.program_counter as usize + 1],
+            );
+
+            if instruction == Instruction::Invalid {
+                continue;
+            }
+
+            interpreter::execute(&mut memory, instruction, &pressed_keys, &new_keys);
         }
 
-        let draw = interpreter::execute(&mut memory, instruction, &mut pressed_keys);
+        old_scancodes = pressed_scancode_set(&event_pump);
 
-        match draw {
-            None => (),
-            Some((x, y, length)) => {
-                let mut filled_rects = Vec::new();
-                let mut blank_rects = Vec::new();
+        let mut filled_rects = Vec::new();
+        let mut blank_rects = Vec::new();
 
-                for row in y..(y + length as usize) {
-                    for col in x..(x + 8) {
-                        let row_index = row % display_constants::HEIGHT as usize;
-                        let col_index = col % display_constants::WIDTH as usize;
-
-                        if memory.display[row_index][col_index] == 1 {
-                            filled_rects.push(Rect::new(
-                                col_index as i32 * display_constants::SCALE as i32,
-                                row_index as i32 * display_constants::SCALE as i32,
-                                display_constants::SCALE,
-                                display_constants::SCALE,
-                            ));
-                        } else {
-                            blank_rects.push(Rect::new(
-                                col_index as i32 * display_constants::SCALE as i32,
-                                row_index as i32 * display_constants::SCALE as i32,
-                                display_constants::SCALE,
-                                display_constants::SCALE,
-                            ));
-                        }
-                    }
+        for row in 0..(display_constants::HEIGHT as usize) {
+            for col in 0..(display_constants::WIDTH as usize) {
+                if memory.display[row][col] == 1 {
+                    filled_rects.push(Rect::new(
+                        col as i32 * display_constants::SCALE as i32,
+                        row as i32 * display_constants::SCALE as i32,
+                        display_constants::SCALE,
+                        display_constants::SCALE,
+                    ));
+                } else {
+                    blank_rects.push(Rect::new(
+                        col as i32 * display_constants::SCALE as i32,
+                        row as i32 * display_constants::SCALE as i32,
+                        display_constants::SCALE,
+                        display_constants::SCALE,
+                    ));
                 }
-
-                canvas.set_draw_color(Color::RGB(0, 0, 0));
-                canvas.fill_rects(&filled_rects).unwrap();
-
-                canvas.set_draw_color(Color::RGB(0, 255, 255));
-                canvas.fill_rects(&blank_rects).unwrap();
             }
         }
 
+        canvas.set_draw_color(Color::RGB(0, 0, 0));
+        canvas.fill_rects(&filled_rects).unwrap();
+
+        canvas.set_draw_color(Color::RGB(0, 255, 255));
+        canvas.fill_rects(&blank_rects).unwrap();
+
+        if memory.delay > 0 {
+            memory.delay -= 1;
+        }
+
+        if memory.sound > 0 {
+            memory.sound -= 1;
+        }
+
         canvas.present();
-        ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
+        std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
     }
+}
+
+fn pressed_scancode_set(event_pump: &sdl2::EventPump) -> HashSet<Scancode> {
+    event_pump.keyboard_state().pressed_scancodes().collect()
+}
+
+fn pressed_keycode_set(event_pump: &sdl2::EventPump) -> HashSet<Keycode> {
+    event_pump
+        .keyboard_state()
+        .pressed_scancodes()
+        .filter_map(Keycode::from_scancode)
+        .collect()
+}
+
+fn newly_pressed(old: &HashSet<Scancode>, new: &HashSet<Scancode>) -> HashSet<Scancode> {
+    new - old
+    // sugar for: new.difference(old).collect()
 }

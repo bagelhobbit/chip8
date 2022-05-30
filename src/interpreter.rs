@@ -4,6 +4,7 @@ use crate::instructions::Instruction;
 use crate::memory::Memory;
 use rand::Rng;
 use sdl2::keyboard::Keycode;
+use std::collections::HashSet;
 
 const KEY_MAP: [Keycode; 16] = [
     Keycode::X,
@@ -152,8 +153,9 @@ pub fn parse(high_byte: u8, low_byte: u8) -> Instruction {
 pub fn execute(
     memory: &mut Memory,
     instruction: Instruction,
-    pressed_keys: &mut Vec<Keycode>,
-) -> Option<(usize, usize, u8)> {
+    pressed_keys: &HashSet<Keycode>,
+    new_keys: &HashSet<Keycode>,
+) {
     // Because we read in the instruction and arguments together,
     // we need to increment the program counter by 2 normally so we don't read in the middle of anything.
     match instruction {
@@ -320,22 +322,11 @@ pub fn execute(
             }
 
             memory.program_counter += 2;
-
-            return Some((x, y, length));
         }
         Instruction::SkipIfKeyPressed { vx } => {
             let key_code = memory.registers[vx] as usize;
 
             if pressed_keys.contains(&KEY_MAP[key_code]) {
-                let mut i = 0;
-                while i < pressed_keys.len() {
-                    if KEY_MAP[key_code] == pressed_keys[i] {
-                        _ = pressed_keys.remove(i);
-                    } else {
-                        i += 1;
-                    }
-                }
-
                 memory.program_counter += 4;
             } else {
                 memory.program_counter += 2;
@@ -347,15 +338,6 @@ pub fn execute(
             if !pressed_keys.contains(&KEY_MAP[key_code]) {
                 memory.program_counter += 4;
             } else {
-                let mut i = 0;
-                while i < pressed_keys.len() {
-                    if KEY_MAP[key_code] == pressed_keys[i] {
-                        _ = pressed_keys.remove(i);
-                    } else {
-                        i += 1;
-                    }
-                }
-
                 memory.program_counter += 2;
             }
         }
@@ -364,19 +346,15 @@ pub fn execute(
             memory.program_counter += 2;
         }
         Instruction::LoadKeyPressed { vx } => {
-            let mut i = 0;
-            while i < pressed_keys.len() {
-                if KEY_MAP.contains(&pressed_keys[i]) {
-                    memory.registers[vx] =
-                        KEY_MAP.iter().position(|&k| k == pressed_keys[i]).unwrap() as u8;
+            // Use new_keys to avoid instances of reading one 'keypress' several times
+            // This means that any held key will not be registered, but that's not a huge issue for this instruction
+            for keycode in new_keys.iter() {
+                if KEY_MAP.contains(keycode) {
+                    memory.registers[vx] = KEY_MAP.iter().position(|k| k == keycode).unwrap() as u8;
                     memory.program_counter += 2;
                     break;
-                } else {
-                    i += 1;
                 }
             }
-
-            pressed_keys.clear();
         }
         Instruction::SetDelay { vx } => {
             memory.delay = memory.registers[vx];
@@ -392,16 +370,16 @@ pub fn execute(
         }
         Instruction::LoadSprite { vx } => {
             match memory.registers[vx] {
-                0 => memory.i = 0,
-                1 => memory.i = 5,
-                2 => memory.i = 10,
-                3 => memory.i = 15,
-                4 => memory.i = 20,
-                5 => memory.i = 25,
-                6 => memory.i = 30,
-                7 => memory.i = 35,
-                8 => memory.i = 40,
-                9 => memory.i = 45,
+                0x0 => memory.i = 0,
+                0x1 => memory.i = 5,
+                0x2 => memory.i = 10,
+                0x3 => memory.i = 15,
+                0x4 => memory.i = 20,
+                0x5 => memory.i = 25,
+                0x6 => memory.i = 30,
+                0x7 => memory.i = 35,
+                0x8 => memory.i = 40,
+                0x9 => memory.i = 45,
                 0xA => memory.i = 50,
                 0xB => memory.i = 55,
                 0xC => memory.i = 60,
@@ -436,8 +414,6 @@ pub fn execute(
             memory.program_counter += 2;
         }
     }
-
-    None
 }
 
 /// Returns the top 4 bits of a u8
